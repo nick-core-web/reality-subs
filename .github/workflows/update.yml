@@ -1,0 +1,49 @@
+name: Filter Reality Subscription
+
+on:
+  schedule:
+    - cron: '0 * * * *' # Запуск каждый час (минута 0 каждого часа)
+  workflow_dispatch: # Позволяет запускать скрипт вручную кнопкой
+
+jobs:
+  update-links:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Fetch and filter subscription
+        env:
+          SOURCE_URL: ${{ secrets.ZIENG_URL }}
+        run: |
+          # 1. Скачиваем подписку (если она в Base64, этот скрипт ее обработает)
+          # Для простоты проверяем: если в файле каша, декодируем, если обычный текст — фильтруем так.
+          
+          curl -sL "$SOURCE_URL" > raw.txt
+          
+          # Проверяем, является ли файл обычным списком ссылок или Base64
+          if grep -q "://" raw.txt; then
+            # Это обычный текст со ссылками
+            grep "reality" raw.txt > reality.txt || true
+          else
+            # Это Base64. Декодируем, фильтруем и кодируем обратно в Base64 (или оставляем текстом)
+            # Exclave отлично понимает обычный текст со ссылками, поэтому оставим чистый текст:
+            base64 -d raw.txt 2>/dev/null | grep "reality" > reality.txt || true
+          fi
+          
+          # Если файл оказался пустой (не нашли reality), запишем комментарий, чтобы файл не был пустым
+          if [ ! -s reality.txt ]; then
+            echo "# No Reality servers found" > reality.txt
+          fi
+          
+          # Удаляем временный сырой файл
+          rm -f raw.txt
+
+      - name: Commit and Push changes
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@://github.com"
+          git add reality.txt
+          # Проверяем, изменился ли файл, чтобы не делать пустые обновления
+          git diff-index --quiet HEAD || git commit -m "Автообновление Reality ссылок"
+          git push
