@@ -2,7 +2,7 @@ name: Filter Reality Subscription
 
 on:
   schedule:
-    - cron: '14 * * * *' # Запуск каждый час (минута 0 каждого часа)
+    - cron: '*/9 * * * *' # Запуск каждый час (минута 0 каждого часа)
   workflow_dispatch: # Позволяет запускать скрипт вручную кнопкой
 
 jobs:
