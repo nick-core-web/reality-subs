@@ -1,49 +1,36 @@
-name: Filter Reality Subscription
+name: Process Subscriptions Separately
 
 on:
   schedule:
-    - cron: '*/9 * * * *' # Запуск каждый час (минута 0 каждого часа)
-  workflow_dispatch: # Позволяет запускать скрипт вручную кнопкой
+    - cron: '*/9 * * * *' # Запуск каждые 9 минут
+  workflow_dispatch: # Кнопка для ручного запуска
 
 jobs:
-  update-links:
+  process-links:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Fetch and filter subscription
+      # Задача 1: Первая ссылка -> result1.txt
+      - name: Process First Source
         env:
-          SOURCE_URL: ${{ secrets.ZIENG_URL }}
+          FIRST_URL: ${{ secrets.ZIENG_URL }}
         run: |
-          # 1. Скачиваем подписку (если она в Base64, этот скрипт ее обработает)
-          # Для простоты проверяем: если в файле каша, декодируем, если обычный текст — фильтруем так.
-          
-          curl -sL "$SOURCE_URL" > raw.txt
-          
-          # Проверяем, является ли файл обычным списком ссылок или Base64
-          if grep -q "://" raw.txt; then
-            # Это обычный текст со ссылками
-            grep "reality" raw.txt > reality.txt || true
-          else
-            # Это Base64. Декодируем, фильтруем и кодируем обратно в Base64 (или оставляем текстом)
-            # Exclave отлично понимает обычный текст со ссылками, поэтому оставим чистый текст:
-            base64 -d raw.txt 2>/dev/null | grep "reality" > reality.txt || true
-          fi
-          
-          # Если файл оказался пустой (не нашли reality), запишем комментарий, чтобы файл не был пустым
-          if [ ! -s reality.txt ]; then
-            echo "# No Reality servers found" > reality.txt
-          fi
-          
-          # Удаляем временный сырой файл
-          rm -f raw.txt
+          curl -sL "$FIRST_URL" | grep "reality" > reality.txt || true
 
-      - name: Commit and Push changes
+      # Задача 2: Вторая ссылка -> result2.txt
+      - name: Process Second Source
+        env:
+          SECOND_URL: ${{ secrets.BL }}
+        run: |
+          curl -sL "$SECOND_URL" | grep "reality" > reality_bl.txt || true
+
+      # Шаг 3: Сохраняем оба файла в репозиторий
+      - name: Commit and push changes
         run: |
           git config --global user.name "github-actions[bot]"
-          git config --global user.email "41898282+github-actions[bot]@://github.com"
-          git add reality.txt
-          # Проверяем, изменился ли файл, чтобы не делать пустые обновления
-          git diff-index --quiet HEAD || git commit -m "Автообновление Reality ссылок"
+          git config --global user.email "github-actions[bot]@github.com"
+          git add reality.txt reality_bl.txt
+          git diff-index --quiet HEAD || git commit -m "Update reality profiles for both sources"
           git push
