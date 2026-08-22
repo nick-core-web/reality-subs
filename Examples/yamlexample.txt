@@ -2,8 +2,8 @@ name: Process Subscriptions
 
 on:
   schedule:
-    - cron: '0 */6 * * *' # Запуск каждые 6 часов
-  workflow_dispatch: # Кнопка для ручного запуска
+    - cron: '*/9 * * * *'
+  workflow_dispatch: 
 
 jobs:
   process-links:
@@ -15,9 +15,9 @@ jobs:
       # Задача 1: Берем 1 ссылку из секретов, фильтруем reality, сохраняем в result1.txt
       - name: Process First Source
         env:
-          FIRST_URL: ${{ secrets.BL }}
+          FIRST_URL: ${{ secrets.ZIENG_URL }}
         run: |
-          curl -sL "$FIRST_URL" | grep -i "reality" > reality_bl.txt || true
+          curl -sL "$FIRST_URL" | grep "reality" > reality.txt || true
 
       # Задача 2: Берем 2 ссылки, скачиваем, объединяем и фильтруем reality в result2.txt
       - name: Process Second Source (Merge)
