@@ -1,0 +1,45 @@
+name: Process Subscriptions
+
+on:
+  schedule:
+    - cron: '0 */6 * * *' # Запуск каждые 6 часов
+  workflow_dispatch: # Кнопка для ручного запуска
+
+jobs:
+  process-links:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Задача 1: Берем 1 ссылку из секретов, фильтруем reality, сохраняем в result1.txt
+      - name: Process First Source
+        env:
+          FIRST_URL: ${{ secrets.BL }}
+        run: |
+          curl -sL "$FIRST_URL" | grep -i "reality" > reality_bl.txt || true
+
+      # Задача 2: Берем 2 ссылки, скачиваем, объединяем и фильтруем reality в result2.txt
+      - name: Process Second Source (Merge)
+        env:
+          SECOND_URL_A: ${{ secrets.SECOND_SOURCE_URL_A }}
+          SECOND_URL_B: ${{ secrets.SECOND_SOURCE_URL_B }}
+        run: |
+          # Скачиваем оба источника во временные файлы
+          curl -sL "$SECOND_URL_A" > temp_a.txt || true
+          curl -sL "$SECOND_URL_B" > temp_b.txt || true
+          
+          # Объединяем их, фильтруем строки с reality и сохраняем
+          cat temp_a.txt temp_b.txt | grep -i "reality" > result2.txt || true
+          
+          # Удаляем временные файлы
+          rm -f temp_a.txt temp_b.txt
+
+      # Шаг 3: Сохраняем изменения в гит
+      - name: Commit and push changes
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@://github.com"
+          git add result1.txt result2.txt
+          git diff-index --quiet HEAD || git commit -m "Update reality profiles"
+          git push
